@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JLL · OKX 服务器部署指南</title>
+    <style>
+        /* ================= 主题变量配置 ================= */
+        
+        /* 默认：暗金色 (Dark Gold) - 机构黑金风 */
+        html[data-theme="dark"] {
+            --bg-deep: #09090b;
+            --bg-panel: #18181b;
+            --bg-sub-item: rgba(255, 255, 255, 0.02);
+            --gold-bright: #FFD700;
+            --gold-metallic: #D4AF37;
+            --gold-border: rgba(212, 175, 55, 0.3);
+            --gold-border-hover: rgba(212, 175, 55, 0.6);
+            --text-primary: #FAFAFA;
+            --text-secondary: #A1A1AA;
+            --badge-bg: linear-gradient(90deg, rgba(212, 175, 55, 0.1) 0%, transparent 100%);
+            --sub-border: rgba(255, 255, 255, 0.05);
+            --shadow-gold: 0 0 20px rgba(212, 175, 55, 0.1);
+            --shadow-gold-hover: 0 0 30px rgba(212, 175, 55, 0.2);
+            --code-bg: #0d1117;
+            --code-text: #c9d1d9;
+            --warn-color: #ff7b72;
+            --icon-color: #FAFAFA;
+        }
+
+        /* 亮金色 (Light Gold) */
+        html[data-theme="light"] {
+            --bg-deep: #F8FAFC;
+            --bg-panel: #FFFFFF;
+            --bg-sub-item: #F8FAFC;
+            --gold-bright: #B8860B; 
+            --gold-metallic: #B8860B;
+            --gold-border: rgba(184, 134, 11, 0.2);
+            --gold-border-hover: rgba(184, 134, 11, 0.5);
+            --text-primary: #0F172A;
+            --text-secondary: #475569;
+            --badge-bg: linear-gradient(90deg, rgba(184, 134, 11, 0.08) 0%, transparent 100%);
+            --sub-border: rgba(0, 0, 0, 0.05);
+            --shadow-gold: 0 4px 20px rgba(0, 0, 0, 0.05);
+            --shadow-gold-hover: 0 10px 30px rgba(184, 134, 11, 0.15);
+            --code-bg: #F1F5F9;
+            --code-text: #334155;
+            --warn-color: #DC2626;
+            --icon-color: #0F172A;
+        }
+
+        /* ================= 基础重置 ================= */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            transition: background-color 0.4s ease, color 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg-deep);
+            /* 核心：渐变光晕背景，提升高级感 */
+            background-image: 
+                radial-gradient(circle at 50% 0%, rgba(212, 175, 55, 0.08) 0%, transparent 50%),
+                radial-gradient(circle at 50% 100%, rgba(212, 175, 55, 0.05) 0%, transparent 50%);
+            color: var(--text-primary);
+            line-height: 1.6;
+            padding: 60px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* 主题切换按钮 */
+        .theme-toggle {
+            position: fixed;
+            top: 30px;
+            right: 40px;
+            background: var(--bg-panel);
+            border: 1px solid var(--gold-border);
+            color: var(--icon-color);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            box-shadow: var(--shadow-gold);
+            z-index: 100;
+        }
+        .theme-toggle:hover { 
+            border-color: var(--gold-metallic); 
+            box-shadow: var(--shadow-gold-hover); 
+            transform: scale(1.1); 
+        }
+        .theme-toggle svg { width: 18px; height: 18px; fill: currentColor; }
+        
+        /* 图标显隐控制 */
+        html[data-theme="dark"] .icon-sun { display: block; }
+        html[data-theme="dark"] .icon-moon { display: none; }
+        html[data-theme="light"] .icon-sun { display: none; }
+        html[data-theme="light"] .icon-moon { display: block; }
+
+        /* ================= 布局与排版 ================= */
+        .container {
+            width: 100%;
+            max-width: 900px;
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+        }
+
+        .header-section {
+            text-align: center;
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .header-section::after {
+            content: '';
+            position: absolute;
+            bottom: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80px;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--gold-bright), transparent);
+        }
+
+        .main-title {
+            font-size: 36px;
+            font-weight: 900;
+            letter-spacing: 2px;
+            background: linear-gradient(135deg, var(--gold-bright) 0%, var(--gold-metallic) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        .sub-title {
+            font-size: 15px;
+            color: var(--text-secondary);
+            letter-spacing: 1px;
+        }
+
+        .card {
+            background: var(--bg-panel);
+            border: 1px solid var(--gold-border);
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: var(--shadow-gold);
+            position: relative;
+            border-top: 2px solid var(--gold-metallic);
+        }
+
+        .card:hover {
+            box-shadow: var(--shadow-gold-hover);
+            border-color: var(--gold-border-hover);
+        }
+
+        .card-title {
+            font-size: 18px;
+            font-weight: 800;
+            color: var(--gold-bright);
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-bottom: 1px solid var(--sub-border);
+            padding-bottom: 12px;
+        }
+
+        .card-title span {
+            background: var(--badge-bg);
+            border: 1px solid var(--gold-border);
+            border-radius: 6px;
+            padding: 2px 8px;
+            font-size: 12px;
+            font-family: monospace;
+            color: var(--gold-bright);
+        }
+
+        .step {
+            margin-bottom: 16px;
+        }
+
+        .step-desc {
+            font-size: 14px;
+            margin-bottom: 10px;
+            color: var(--text-primary);
+        }
+
+        .step-desc strong { color: var(--gold-bright); }
+
+        /* 代码块 */
+        pre {
+            background: var(--code-bg);
+            padding: 16px;
+            border-radius: 8px;
+            border: 1px solid var(--sub-border);
+            overflow-x: auto;
+            font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            color: var(--code-text);
+            margin-bottom: 8px;
+        }
+
+        .comment { color: var(--text-secondary); font-style: italic; }
+
+        /* 警告框 */
+        .alert {
+            background: rgba(255, 123, 114, 0.08);
+            border-left: 3px solid var(--warn-color);
+            padding: 14px 18px;
+            border-radius: 6px;
+            font-size: 14px;
+            margin-bottom: 20px;
+            color: var(--text-primary);
+        }
+        .alert strong { color: var(--warn-color); }
+
+        /* 列表 */
+        ul { padding-left: 20px; margin-bottom: 12px; }
+        li { margin-bottom: 8px; font-size: 14px; color: var(--text-secondary); }
+        li strong { color: var(--text-primary); }
+        code { 
+            font-family: monospace; 
+            background: var(--bg-sub-item); 
+            padding: 2px 6px; 
+            border-radius: 4px; 
+            border: 1px solid var(--gold-border); 
+            color: var(--gold-bright);
+        }
+
+        @media (max-width: 768px) {
+            .theme-toggle { top: 20px; right: 20px; }
+            .main-title { font-size: 28px; }
+            .card { padding: 18px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 主题切换按钮 -->
+    <button class="theme-toggle" id="themeToggle" title="切换亮金 / 暗金">
+        <!-- 月亮图标 (亮金时显示) -->
+        <svg class="icon-moon" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 0 1-4.4 2.26 5.403 5.403 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/></svg>
+        <!-- 太阳图标 (暗金时显示) -->
+        <svg class="icon-sun" viewBox="0 0 24 24"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1z"/></svg>
+    </button>
+
+    <div class="container">
+        <!-- 头部 -->
+        <div class="header-section">
+            <h1 class="main-title">JLL · OKX 服务器部署指南</h1>
+            <p class="sub-title">新加坡服务器 · 极简部署流程</p>
+        </div>
+
+        <!-- 警告 -->
+        <div class="alert">
+            <strong>🚨 上线前必查：</strong>请确认 <code>btc.json</code> 中的周期为 <code>"1D"</code> 或 <code>"6H"</code>，绝不可写 <code>"8H"</code>（OKX不支持，会直接报错退出）。API 权限切勿勾选提现，且需绑定当前服务器IP。
+        </div>
+
+        <!-- 步骤 1 -->
+        <div class="card">
+            <div class="card-title">环境准备与 Python 安装 <span>Step 1</span></div>
+            <div class="step">
+                <div class="step-desc">登录宝塔面板，打开终端，执行以下命令安装 Python 3.10 及相关工具：</div>
+                <pre><span class="comment"># 更新软件源</span>
+sudo apt update
+
+<span class="comment"># 安装 Python 3.10、pip 和 虚拟环境模块</span>
+sudo apt install python3 python3-pip python3-venv -y
+
+<span class="comment"># 验证安装（应显示 Python 3.10.x）</span>
+python3 --version</pre>
+            </div>
+        </div>
+
+        <!-- 步骤 2 -->
+        <div class="card">
+            <div class="card-title">创建虚拟环境与安装依赖 <span>Step 2</span></div>
+            <div class="step">
+                <div class="step-desc">进入项目目录，创建隔离环境并安装依赖包：</div>
+                <pre><span class="comment"># 进入项目目录 (请确认实际路径)</span>
+cd /www/okx_1k_bot
+
+<span class="comment"># 创建虚拟环境</span>
+python3 -m venv venv
+
+<span class="comment"># 激活虚拟环境 (终端提示符前会出现 venv)</span>
+source venv/bin/activate
+
+<span class="comment"># 安装依赖 (使用清华源加速)</span>
+pip install --upgrade pip
+pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple</pre>
+            </div>
+        </div>
+
+        <!-- 步骤 3 -->
+        <div class="card">
+            <div class="card-title">单次试跑测试 <span>Step 3</span></div>
+            <div class="step">
+                <div class="step-desc">配置好 <code>btc.json</code> 后，先单次运行，观察日志是否报错：</div>
+                <pre><span class="comment"># 单次对账并退出，不进入死循环</span>
+python3 okx_1k_bot.py -c btc.json --once
+
+<span class="comment"># 查看日志（按 q 退出）</span>
+cat btc.log | less</pre>
+                <div class="step-desc" style="margin-top: 8px; font-size: 13px; color: var(--text-secondary);">
+                    * 若日志出现 <code>[启动预检] K线接口正常</code> 和持仓信息，则链路跑通。
+                </div>
+            </div>
+        </div>
+
+        <!-- 步骤 4 -->
+        <div class="card">
+            <div class="card-title">宝塔守护进程 <span>Step 4</span></div>
+            <div class="step">
+                <div class="step-desc">在宝塔面板中实现 7x24 小时常驻：</div>
+                <ul>
+                    <li>软件商店 → 安装 <strong>Python项目管理器</strong>。</li>
+                    <li>添加项目，路径选 <code>/www/okx_1k_bot</code>。</li>
+                    <li>启动命令填：<code>/www/okx_1k_bot/venv/bin/python /www/okx_1k_bot/okx_1k_bot.py -c btc.json</code>。</li>
+                    <li>勾选“自动重启”与“开机自启”。</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- 步骤 5 -->
+        <div class="card">
+            <div class="card-title">日常维护与实盘确认 <span>Step 5</span></div>
+            <ul>
+                <li><strong>查看实时日志：</strong> <code>tail -f /www/okx_1k_bot/btc.log</code></li>
+                <li><strong>检查持仓状态：</strong> <code>cat /www/okx_1k_bot/state_btc.json</code></li>
+                <li><strong>⚠️ 转实盘最后确认：</strong>将 <code>btc.json</code> 中的 <code>"dry_run"</code> 和 <code>"simulated_trading"</code> 改为 <code>false</code>，并在宝塔中重启项目。</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var toggleBtn = document.getElementById('themeToggle');
+            var htmlEl = document.documentElement;
+
+            // 检查本地存储，默认是暗金（HTML标签已写 data-theme="dark"）
+            var savedTheme = localStorage.getItem('jll-theme');
+            if (savedTheme === 'light') {
+                htmlEl.setAttribute('data-theme', 'light');
+            }
+
+            // 点击切换
+            toggleBtn.addEventListener('click', function() {
+                var currentTheme = htmlEl.getAttribute('data-theme');
+                var newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+                htmlEl.setAttribute('data-theme', newTheme);
+                localStorage.setItem('jll-theme', newTheme);
+            });
+        });
+    </script>
+</body>
+</html>
